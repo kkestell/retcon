@@ -7,7 +7,7 @@ from openai import OpenAI
 import tiktoken
 
 
-def num_tokens_from_string(string, model="gpt-4o-mini"):
+def num_tokens_from_string(string, model):
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
@@ -15,7 +15,7 @@ def num_tokens_from_string(string, model="gpt-4o-mini"):
     return len(encoding.encode(string))
 
 
-def num_tokens_from_messages(messages, model="gpt-4o-mini"):
+def num_tokens_from_messages(messages, model):
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
@@ -102,10 +102,14 @@ def main():
     parser.add_argument("--model", default="gpt-4o-mini", help="OpenAI model to use (default: gpt-4o-mini)")
     parser.add_argument("--max-conversation-tokens", type=int, default=50000, help="Maximum conversation tokens (default: 50000)")
     parser.add_argument("--max-diff-tokens", type=int, default=4000, help="Maximum number of tokens for the diff (default: 4000)")
+    parser.add_argument("--num-commits", type=int, default=None, help="Number of most recent commits to rewrite (default: all commits)")
     args = parser.parse_args()
 
     os.chdir(args.repo)
     commit_hashes = get_commit_hashes()
+
+    if args.num_commits is not None:
+        commit_hashes = commit_hashes[-args.num_commits:]
 
     client = OpenAI(
         api_key=os.environ.get("OPENAI_API_KEY"),
@@ -138,7 +142,6 @@ Given a list of changed files and a diff, generate a concise yet descriptive com
 
     for i in range(len(commit_hashes)):
         try:
-            commit_hashes = get_commit_hashes()
             prompt = generate_prompt(commit_hashes[i], args.model, args.max_diff_tokens)
             new_message = generate_new_commit_message(client, messages, prompt, args.model, args.max_conversation_tokens)
             print(new_message)
